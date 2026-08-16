@@ -9,12 +9,19 @@ import time
 import pygame
 import RPi.GPIO as GPIO
 
-from omni_kinematics import axis_deadzone, clamp, mix_three_omni, radial_deadzone
+from omni_kinematics import (
+    axis_deadzone,
+    clamp,
+    mix_three_omni,
+    radial_deadzone,
+    shape_motor_power,
+)
 
 # Generic Bluetooth controller mapping (kept from the original program).
 LEFT_X_AXIS = 0
 LEFT_Y_AXIS = 1
-RIGHT_X_AXIS = 3
+# On this generic controller, axis 3 is the right stick's vertical axis.
+RIGHT_TURN_AXIS = 3
 BUTTON_A_INDEX = 0
 BUTTON_Y_INDEX = 1
 
@@ -26,12 +33,13 @@ ARM_NEUTRAL_SECONDS = 0.25
 # BOARD pin numbering, matching the supplied wiring.
 MOTOR_PINS = ((40, 38), (15, 35), (12, 16))
 MOTOR_NAMES = ("Motor 0 (Front)", "Motor 1 (L-Rear)", "Motor 2 (R-Rear)")
-# Set an entry to -1 only when that physical motor runs backward.
-MOTOR_SIGNS = (1, 1, 1)
+# The right-rear motor is mirrored relative to the other two motors.
+MOTOR_SIGNS = (1, 1, -1)
 
 PWM_FREQUENCY_HZ = 1000
-MAX_DUTY_PERCENT = 100.0
-SLEW_PER_SECOND = 2.5  # zero to full power in 0.4 seconds
+START_POWER = 0.50
+MAXIMUM_POWER = 0.75
+SLEW_PER_SECOND = 2.5  # 50% to 75% takes 0.1 seconds
 REVERSAL_DEADTIME_SECONDS = 0.08
 ZERO_EPSILON = 0.005
 
@@ -61,7 +69,7 @@ class Motor:
         self.current_power = 0.0
 
     def _write(self, power: float) -> None:
-        duty = abs(power) * MAX_DUTY_PERCENT
+        duty = abs(power) * 100.0
         if power > 0.0:
             self.pwm2.ChangeDutyCycle(0.0)
             self.pwm1.ChangeDutyCycle(duty)
@@ -76,6 +84,14 @@ class Motor:
         if abs(target) < ZERO_EPSILON:
             target = 0.0
 
+        # Neutral stops immediately. Any nonzero command starts at 50% rather
+        # than wasting time ramping through a range that cannot move the robot.
+        if target == 0.0:
+            self._coast()
+            return "OFF", 0.0
+
+        target = shape_motor_power(target, START_POWER, MAXIMUM_POWER)
+
         reversing = self.current_power * target < 0.0
         if reversing:
             self._coast()
@@ -86,12 +102,13 @@ class Motor:
             self._coast()
             return "WAIT", 0.0
 
-        max_change = SLEW_PER_SECOND * max(dt, 0.0)
-        self.current_power += clamp(
-            target - self.current_power, -max_change, max_change
-        )
-        if abs(self.current_power) < ZERO_EPSILON and target == 0.0:
-            self.current_power = 0.0
+        if self.current_power == 0.0:
+            self.current_power = START_POWER if target > 0.0 else -START_POWER
+        else:
+            max_change = SLEW_PER_SECOND * max(dt, 0.0)
+            self.current_power += clamp(
+                target - self.current_power, -max_change, max_change
+            )
         self._write(self.current_power)
 
         if self.current_power > 0.0:
@@ -100,7 +117,7 @@ class Motor:
             state = "REV"
         else:
             state = "OFF"
-        return state, abs(self.current_power) * MAX_DUTY_PERCENT
+        return state, abs(self.current_power) * 100.0
 
     def stop(self) -> None:
         self._coast()
@@ -218,7 +235,7 @@ def main() -> None:
 
             lx_raw = axis(LEFT_X_AXIS)
             ly_raw = axis(LEFT_Y_AXIS)
-            rx_raw = axis(RIGHT_X_AXIS)
+            right_turn_raw = axis(RIGHT_TURN_AXIS)
             a_pressed = button(BUTTON_A_INDEX)
             y_pressed = button(BUTTON_Y_INDEX)
 
@@ -237,7 +254,8 @@ def main() -> None:
             strafe, forward = radial_deadzone(
                 lx_raw, -ly_raw, STICK_DEADZONE
             )
-            turn = axis_deadzone(rx_raw, TURN_DEADZONE)
+            # Right stick up is a left/counter-clockwise turn; down is right.
+            turn = axis_deadzone(-right_turn_raw, TURN_DEADZONE)
             neutral = max((strafe * strafe + forward * forward) ** 0.5, abs(turn))
 
             if enabled and not armed:
@@ -264,8 +282,13 @@ def main() -> None:
                 for motor, sign, target in zip(motors, MOTOR_SIGNS, powers):
                     signed_target = target * sign
                     state, duty = motor.command(signed_target, now, dt)
+                    target_duty = abs(
+                        shape_motor_power(
+                            signed_target, START_POWER, MAXIMUM_POWER
+                        )
+                    ) * 100.0
                     telemetry.append(
-                        f"{motor.name}: {state:5} Target {abs(signed_target)*100:5.1f}% "
+                        f"{motor.name}: {state:5} Target {target_duty:5.1f}% "
                         f"Current {duty:5.1f}%"
                     )
 

@@ -39,6 +39,17 @@ def normalize(values: Iterable[float], limit: float = 1.0) -> Tuple[float, ...]:
     return tuple(value * scale for value in values)
 
 
+def shape_motor_power(
+    power: float, start_power: float = 0.50, maximum_power: float = 0.75
+) -> float:
+    """Map every nonzero command into the motor's usable duty-cycle range."""
+    power = clamp(power, -1.0, 1.0)
+    if power == 0.0:
+        return 0.0
+    duty = start_power + (maximum_power - start_power) * abs(power)
+    return math.copysign(duty, power)
+
+
 def mix_three_omni(strafe: float, forward: float, turn: float) -> Tuple[float, float, float]:
     """Return front, left-rear, and right-rear motor powers in [-1, 1].
 
@@ -65,4 +76,3 @@ def mix_three_omni(strafe: float, forward: float, turn: float) -> Tuple[float, f
         )
 
     return normalize(tuple(value + turn for value in translation))  # type: ignore[return-value]
-

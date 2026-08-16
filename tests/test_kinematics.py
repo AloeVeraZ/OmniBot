@@ -1,7 +1,12 @@
 import math
 import unittest
 
-from omni_kinematics import axis_deadzone, mix_three_omni, radial_deadzone
+from omni_kinematics import (
+    axis_deadzone,
+    mix_three_omni,
+    radial_deadzone,
+    shape_motor_power,
+)
 
 
 class KinematicsTests(unittest.TestCase):
@@ -36,7 +41,13 @@ class KinematicsTests(unittest.TestCase):
         self.assertAlmostEqual(axis_deadzone(1, 0.15), 1)
         self.assertAlmostEqual(axis_deadzone(-1, 0.15), -1)
 
+    def test_motor_power_jumps_to_usable_range(self):
+        self.assertEqual(shape_motor_power(0), 0)
+        self.assertAlmostEqual(shape_motor_power(0.0001), 0.500025)
+        self.assertAlmostEqual(shape_motor_power(0.5), 0.625)
+        self.assertAlmostEqual(shape_motor_power(1), 0.75)
+        self.assertAlmostEqual(shape_motor_power(-1), -0.75)
+
 
 if __name__ == "__main__":
     unittest.main()
-
