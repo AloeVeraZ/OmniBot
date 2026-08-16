@@ -30,6 +30,32 @@ def axis_deadzone(value: float, deadzone: float) -> float:
     return math.copysign((min(abs(value), 1.0) - deadzone) / (1.0 - deadzone), value)
 
 
+def trigger_activation(raw_value: float, rest_value: float) -> float:
+    """Return 0..1 trigger travel for controllers using either common axis range."""
+    travel = abs(raw_value - rest_value)
+    if abs(rest_value) >= 0.5:
+        travel *= 0.5  # Common SDL trigger range is -1 (rest) to +1 (pressed).
+    return clamp(travel, 0.0, 1.0)
+
+
+def next_servo_angle(
+    angle: float,
+    left_trigger: float,
+    right_trigger: float,
+    dt: float,
+    speed_degrees_per_second: float,
+) -> float:
+    """Rate-control a positional servo within its -180..+180 degree limits."""
+    direction = clamp(right_trigger, 0.0, 1.0) - clamp(
+        left_trigger, 0.0, 1.0
+    )
+    return clamp(
+        angle + direction * speed_degrees_per_second * max(dt, 0.0),
+        -180.0,
+        180.0,
+    )
+
+
 def normalize(values: Iterable[float], limit: float = 1.0) -> Tuple[float, ...]:
     values = tuple(values)
     peak = max((abs(value) for value in values), default=0.0)

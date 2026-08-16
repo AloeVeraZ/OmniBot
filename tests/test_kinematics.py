@@ -4,8 +4,10 @@ import unittest
 from omni_kinematics import (
     axis_deadzone,
     mix_three_omni,
+    next_servo_angle,
     radial_deadzone,
     shape_motor_power,
+    trigger_activation,
 )
 
 
@@ -47,6 +49,20 @@ class KinematicsTests(unittest.TestCase):
         self.assertAlmostEqual(shape_motor_power(0.5, 0.75, 1.0), 0.875)
         self.assertAlmostEqual(shape_motor_power(1, 0.75, 1.0), 1.0)
         self.assertAlmostEqual(shape_motor_power(-1, 0.75, 1.0), -1.0)
+
+    def test_trigger_activation_supports_common_axis_ranges(self):
+        self.assertEqual(trigger_activation(-1, -1), 0)
+        self.assertAlmostEqual(trigger_activation(0, -1), 0.5)
+        self.assertEqual(trigger_activation(1, -1), 1)
+        self.assertEqual(trigger_activation(0, 0), 0)
+        self.assertEqual(trigger_activation(1, 0), 1)
+
+    def test_servo_trigger_rate_and_hard_limits(self):
+        self.assertEqual(next_servo_angle(0, 1, 0, 0.5, 120), -60)
+        self.assertEqual(next_servo_angle(0, 0, 1, 0.5, 120), 60)
+        self.assertEqual(next_servo_angle(-179, 1, 0, 1, 120), -180)
+        self.assertEqual(next_servo_angle(179, 0, 1, 1, 120), 180)
+        self.assertEqual(next_servo_angle(20, 1, 1, 1, 120), 20)
 
 
 if __name__ == "__main__":

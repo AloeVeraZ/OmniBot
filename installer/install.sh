@@ -32,6 +32,8 @@ apt_get install -y \
     git \
     python3 \
     python3-pygame \
+    python3-smbus \
+    i2c-tools \
     "$GPIO_PACKAGE" \
     bluez
 
@@ -49,6 +51,10 @@ fi
 
 sudo systemctl set-default graphical.target
 sudo systemctl enable lightdm 2>/dev/null || true
+
+if command -v raspi-config >/dev/null 2>&1; then
+    sudo raspi-config nonint do_i2c 0
+fi
 
 say "Downloading OmniBot..."
 install_fresh_copy() {
@@ -92,8 +98,11 @@ else
     git clone --branch main --single-branch "$REPO_URL" "$APP_DIR"
 fi
 
-python3 -m py_compile "$APP_DIR/omni_kinematics.py" "$APP_DIR/omni_robot.py"
-python3 -c 'import pygame; import RPi.GPIO; print("pygame and GPIO imports passed.")'
+python3 -m py_compile \
+    "$APP_DIR/omni_kinematics.py" \
+    "$APP_DIR/omni_robot.py" \
+    "$APP_DIR/servo_hat.py"
+python3 -c 'import pygame; import RPi.GPIO; import smbus; print("pygame, GPIO, and SMBus imports passed.")'
 PYTHONPATH="$APP_DIR" python3 -m unittest discover -s "$APP_DIR/tests" -v
 
 say "Creating the launcher and desktop auto-start..."

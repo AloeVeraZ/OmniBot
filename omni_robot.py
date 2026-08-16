@@ -13,17 +13,23 @@ from omni_kinematics import (
     axis_deadzone,
     clamp,
     mix_three_omni,
+    next_servo_angle,
     radial_deadzone,
     shape_motor_power,
+    trigger_activation,
 )
+from servo_hat import PositionalServo
 
 # Generic Bluetooth controller mapping (kept from the original program).
 LEFT_X_AXIS = 0
 LEFT_Y_AXIS = 1
 # On this generic controller, axis 3 is the right stick's vertical axis.
 RIGHT_TURN_AXIS = 3
+LEFT_TRIGGER_AXIS = 2
+RIGHT_TRIGGER_AXIS = 5
 BUTTON_A_INDEX = 0
 BUTTON_Y_INDEX = 1
+BUTTON_X_INDEX = 2
 
 STICK_DEADZONE = 0.15
 TURN_DEADZONE = 0.15
@@ -43,6 +49,7 @@ BREAKAWAY_BOOST_SECONDS = 0.20
 SLEW_PER_SECOND = 4.0
 REVERSAL_DEADTIME_SECONDS = 0.08
 ZERO_EPSILON = 0.005
+SERVO_SPEED_DEGREES_PER_SECOND = 120.0
 
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 480
 UI_FPS = 60
@@ -153,7 +160,7 @@ def main() -> None:
     def render(text: str, font=font_medium, color=(25, 25, 28)):
         return font.render(text, True, color)
 
-    def draw_ui(joy_name, lx, ly, rows, enabled, armed):
+    def draw_ui(joy_name, lx, ly, rows, enabled, armed, servo_status):
         screen.fill((245, 246, 248))
         center_x, center_y, radius = 140, SCREEN_HEIGHT // 2, 110
         pygame.draw.circle(screen, (255, 255, 255), (center_x, center_y), radius)
@@ -190,6 +197,7 @@ def main() -> None:
         for row in rows:
             screen.blit(render(row, font_medium), (panel_x + 12, y))
             y += 28
+        screen.blit(render(servo_status, font_small, (70, 76, 85)), (panel_x + 12, y + 4))
         pygame.display.flip()
 
     GPIO.setwarnings(False)
@@ -198,6 +206,12 @@ def main() -> None:
         Motor(name, pins[0], pins[1])
         for name, pins in zip(MOTOR_NAMES, MOTOR_PINS)
     ]
+    servo: PositionalServo | None = None
+    servo_error = ""
+    try:
+        servo = PositionalServo()
+    except Exception as error:
+        servo_error = f"Servo 0 unavailable: {error}"
     joystick = get_joystick()
     enabled = False
     armed = False
@@ -206,6 +220,8 @@ def main() -> None:
     previous_y = False
     running = True
     last_time = time.monotonic()
+    left_trigger_rest = 0.0
+    right_trigger_rest = 0.0
 
     def all_stop() -> None:
         stop_time = time.monotonic()
@@ -243,8 +259,11 @@ def main() -> None:
             lx_raw = axis(LEFT_X_AXIS)
             ly_raw = axis(LEFT_Y_AXIS)
             right_turn_raw = axis(RIGHT_TURN_AXIS)
+            left_trigger_raw = axis(LEFT_TRIGGER_AXIS)
+            right_trigger_raw = axis(RIGHT_TRIGGER_AXIS)
             a_pressed = button(BUTTON_A_INDEX)
             y_pressed = button(BUTTON_Y_INDEX)
+            x_pressed = button(BUTTON_X_INDEX)
 
             # Rising edges prevent a held A button from resetting arming each frame.
             if y_pressed and not previous_y:
@@ -255,6 +274,8 @@ def main() -> None:
                 enabled = True
                 armed = False
                 neutral_since = None
+                left_trigger_rest = left_trigger_raw
+                right_trigger_rest = right_trigger_raw
                 all_stop()
             previous_a, previous_y = a_pressed, y_pressed
 
@@ -264,6 +285,35 @@ def main() -> None:
             # Right stick up is a left/counter-clockwise turn; down is right.
             turn = axis_deadzone(-right_turn_raw, TURN_DEADZONE)
             neutral = max((strafe * strafe + forward * forward) ** 0.5, abs(turn))
+
+            left_trigger = trigger_activation(
+                left_trigger_raw, left_trigger_rest
+            )
+            right_trigger = trigger_activation(
+                right_trigger_raw, right_trigger_rest
+            )
+
+            if servo is not None:
+                if enabled and armed:
+                    if x_pressed:
+                        servo.center()
+                    else:
+                        servo.set_angle(
+                            next_servo_angle(
+                                servo.angle,
+                                left_trigger,
+                                right_trigger,
+                                dt,
+                                SERVO_SPEED_DEGREES_PER_SECOND,
+                            )
+                        )
+                servo_status = (
+                    f"Servo 0: {servo.angle:+6.1f} deg  "
+                    f"LT {left_trigger*100:3.0f}%  RT {right_trigger*100:3.0f}%  "
+                    "X = center"
+                )
+            else:
+                servo_status = servo_error
 
             if enabled and not armed:
                 if neutral <= ARM_NEUTRAL_LIMIT:
@@ -299,11 +349,15 @@ def main() -> None:
                         f"Current {duty:5.1f}%"
                     )
 
-            draw_ui(joy_name, lx_raw, ly_raw, telemetry, enabled, armed)
+            draw_ui(
+                joy_name, lx_raw, ly_raw, telemetry, enabled, armed, servo_status
+            )
             clock.tick(UI_FPS)
     finally:
         for motor in motors:
             motor.stop()
+        if servo is not None:
+            servo.close()
         GPIO.cleanup()
         pygame.quit()
 

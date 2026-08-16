@@ -21,6 +21,23 @@ The controller must be connected at startup or may be connected later. Press A,
 release it, and hold both sticks centered for 0.25 seconds. Press Y for an immediate
 software stop. Disconnecting the controller also disables and stops the drive.
 
+## Positional servo on HAT channel 0
+
+The supported HAT is the 16-channel Waveshare-style PCA9685 I2C Servo Driver HAT
+at its default `0x40` address. Connect a 360-degree **positional** servo to channel
+0 with the ground, 5V, and signal wires in the board's indicated orientation.
+
+- Hold the left trigger to move incrementally toward `-180 degrees`.
+- Hold the right trigger to move incrementally toward `+180 degrees`.
+- Release both triggers to hold the current position.
+- Press X to return to `0 degrees`.
+
+The software never commands beyond `-180..+180 degrees`. Before attaching the
+mechanism, test the servo unloaded and calibrate `SERVO_MIN_PULSE_US`,
+`SERVO_CENTER_PULSE_US`, and `SERVO_MAX_PULSE_US` in `servo_hat.py`. Immediately
+reduce the pulse range if the servo buzzes, heats, or pushes against a physical
+stop. The installer enables I2C and installs the SMBus driver automatically.
+
 ## Wiring and controls
 
 GPIO mode is `BOARD`, so these are physical header pin numbers:
