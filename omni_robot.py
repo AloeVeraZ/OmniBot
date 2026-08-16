@@ -37,9 +37,10 @@ MOTOR_NAMES = ("Motor 0 (Front)", "Motor 1 (L-Rear)", "Motor 2 (R-Rear)")
 MOTOR_SIGNS = (1, 1, -1)
 
 PWM_FREQUENCY_HZ = 1000
-START_POWER = 0.50
-MAXIMUM_POWER = 0.75
-SLEW_PER_SECOND = 2.5  # 50% to 75% takes 0.1 seconds
+START_POWER = 0.75
+MAXIMUM_POWER = 1.00
+BREAKAWAY_BOOST_SECONDS = 0.20
+SLEW_PER_SECOND = 4.0
 REVERSAL_DEADTIME_SECONDS = 0.08
 ZERO_EPSILON = 0.005
 
@@ -62,6 +63,7 @@ class Motor:
         self.pwm2.start(0.0)
         self.current_power = 0.0
         self.blocked_until = 0.0
+        self.boost_until = 0.0
 
     def _coast(self) -> None:
         self.pwm1.ChangeDutyCycle(0.0)
@@ -103,7 +105,12 @@ class Motor:
             return "WAIT", 0.0
 
         if self.current_power == 0.0:
-            self.current_power = START_POWER if target > 0.0 else -START_POWER
+            # A short true-100% pulse helps overcome static friction. Full
+            # stick remains at 100% after this pulse instead of ramping down.
+            self.current_power = 1.0 if target > 0.0 else -1.0
+            self.boost_until = now + BREAKAWAY_BOOST_SECONDS
+        elif now < self.boost_until:
+            self.current_power = 1.0 if target > 0.0 else -1.0
         else:
             max_change = SLEW_PER_SECOND * max(dt, 0.0)
             self.current_power += clamp(

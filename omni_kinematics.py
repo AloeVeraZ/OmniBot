@@ -40,7 +40,7 @@ def normalize(values: Iterable[float], limit: float = 1.0) -> Tuple[float, ...]:
 
 
 def shape_motor_power(
-    power: float, start_power: float = 0.50, maximum_power: float = 0.75
+    power: float, start_power: float = 0.75, maximum_power: float = 1.00
 ) -> float:
     """Map every nonzero command into the motor's usable duty-cycle range."""
     power = clamp(power, -1.0, 1.0)

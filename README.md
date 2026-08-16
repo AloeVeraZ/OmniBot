@@ -36,8 +36,9 @@ stick's vertical axis controls rotation: push it up to turn left and down to tur
 right. The right-rear motor direction is reversed in software because it is
 mirrored relative to the other motors.
 
-Every nonzero motor command starts immediately at 50% duty cycle, then scales from
-50% to 75% as the stick moves farther. Releasing the stick stops the affected motor
+Every nonzero motor command applies a 0.20-second 100% breakaway pulse to overcome
+static friction, then runs between 75% and 100% as the stick moves farther. Full
+stick stays at a true 100% duty cycle. Releasing the stick stops the affected motor
 immediately; it never slowly ramps down through the unusable range.
 
 ## Three-wheel behavior
@@ -48,7 +49,7 @@ turn in opposite directions. A small strafe command makes the front motor turn.
 That is correct three-wheel omni kinematics; the rollers allow the stopped wheel to
 slide sideways. Pure rotation commands all three motors in the same direction.
 
-If the robot still barely moves at 75% PWM while the lifted wheels spin quickly,
+If the robot still barely moves at 100% PWM while the lifted wheels spin quickly,
 the limiting problem is electrical or mechanical, not kinematic software. Check
 the motor supply under load, common Pi/driver ground, driver current capacity and
 voltage drop, battery condition, wheel binding, robot weight, and motor gearing.

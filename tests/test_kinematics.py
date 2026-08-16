@@ -43,10 +43,10 @@ class KinematicsTests(unittest.TestCase):
 
     def test_motor_power_jumps_to_usable_range(self):
         self.assertEqual(shape_motor_power(0), 0)
-        self.assertAlmostEqual(shape_motor_power(0.0001), 0.500025)
-        self.assertAlmostEqual(shape_motor_power(0.5), 0.625)
-        self.assertAlmostEqual(shape_motor_power(1), 0.75)
-        self.assertAlmostEqual(shape_motor_power(-1), -0.75)
+        self.assertAlmostEqual(shape_motor_power(0.0001, 0.75, 1.0), 0.750025)
+        self.assertAlmostEqual(shape_motor_power(0.5, 0.75, 1.0), 0.875)
+        self.assertAlmostEqual(shape_motor_power(1, 0.75, 1.0), 1.0)
+        self.assertAlmostEqual(shape_motor_power(-1, 0.75, 1.0), -1.0)
 
 
 if __name__ == "__main__":
