@@ -16,9 +16,9 @@ SERVO_FREQUENCY_HZ = 50.0
 
 # Calibrate these for the exact goBILDA positional servo before attaching a load.
 # If the servo buzzes or pushes against a stop, reduce the range immediately.
-SERVO_MIN_PULSE_US = 500.0   # -180 degrees
+SERVO_MIN_PULSE_US = 500.0   # -150 degrees
 SERVO_CENTER_PULSE_US = 1500.0  # 0 degrees
-SERVO_MAX_PULSE_US = 2500.0  # +180 degrees
+SERVO_MAX_PULSE_US = 2500.0  # +150 degrees
 
 MODE1 = 0x00
 PRESCALE = 0xFE
@@ -46,13 +46,13 @@ class PositionalServo:
 
     @staticmethod
     def angle_to_pulse_us(angle: float) -> float:
-        angle = clamp(angle, -180.0, 180.0)
+        angle = clamp(angle, -150.0, 150.0)
         if angle <= 0.0:
-            fraction = (angle + 180.0) / 180.0
+            fraction = (angle + 150.0) / 150.0
             return SERVO_MIN_PULSE_US + fraction * (
                 SERVO_CENTER_PULSE_US - SERVO_MIN_PULSE_US
             )
-        fraction = angle / 180.0
+        fraction = angle / 150.0
         return SERVO_CENTER_PULSE_US + fraction * (
             SERVO_MAX_PULSE_US - SERVO_CENTER_PULSE_US
         )
@@ -65,7 +65,7 @@ class PositionalServo:
         self.bus.write_i2c_block_data(PCA9685_ADDRESS, register, payload)
 
     def set_angle(self, angle: float, force: bool = False) -> None:
-        self.angle = clamp(angle, -180.0, 180.0)
+        self.angle = clamp(angle, -150.0, 150.0)
         pulse_us = self.angle_to_pulse_us(self.angle)
         if force or self._last_pulse_us is None or not math.isclose(
             pulse_us, self._last_pulse_us, abs_tol=0.5

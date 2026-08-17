@@ -6,6 +6,9 @@ import math
 from typing import Iterable, Tuple
 
 
+THREE_OMNI_MOTOR_SIGNS = (1, -1, -1)
+
+
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
@@ -30,6 +33,18 @@ def axis_deadzone(value: float, deadzone: float) -> float:
     return math.copysign((min(abs(value), 1.0) - deadzone) / (1.0 - deadzone), value)
 
 
+def controller_drive_axes(
+    left_x: float,
+    left_y: float,
+    right_x: float,
+    right_y: float,
+    right_vertical_gate: float = 0.20,
+) -> Tuple[float, float, float]:
+    """Map reversed axes and accept turning only near right-stick horizontal."""
+    turn = -right_x if abs(right_y) <= right_vertical_gate else 0.0
+    return -left_x, -left_y, turn
+
+
 def trigger_activation(raw_value: float, rest_value: float) -> float:
     """Return 0..1 trigger travel for controllers using either common axis range."""
     travel = abs(raw_value - rest_value)
@@ -45,14 +60,14 @@ def next_servo_angle(
     dt: float,
     speed_degrees_per_second: float,
 ) -> float:
-    """Rate-control a positional servo within its -180..+180 degree limits."""
+    """Rate-control the 300-degree goBILDA servo within -150..+150 degrees."""
     direction = clamp(right_trigger, 0.0, 1.0) - clamp(
         left_trigger, 0.0, 1.0
     )
     return clamp(
         angle + direction * speed_degrees_per_second * max(dt, 0.0),
-        -180.0,
-        180.0,
+        -150.0,
+        150.0,
     )
 
 

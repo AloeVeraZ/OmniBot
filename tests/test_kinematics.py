@@ -2,7 +2,9 @@ import math
 import unittest
 
 from omni_kinematics import (
+    THREE_OMNI_MOTOR_SIGNS,
     axis_deadzone,
+    controller_drive_axes,
     mix_three_omni,
     next_servo_angle,
     radial_deadzone,
@@ -27,6 +29,25 @@ class KinematicsTests(unittest.TestCase):
 
     def test_turn_uses_all_wheels_equally(self):
         self.assertPowers(mix_three_omni(0, 0, 1), (1, 1, 1))
+
+    def test_physical_forward_stops_front_and_drives_both_rears(self):
+        mixed = mix_three_omni(0, 1, 0)
+        physical = tuple(
+            power * sign for power, sign in zip(mixed, THREE_OMNI_MOTOR_SIGNS)
+        )
+        self.assertPowers(physical, (0, 1, -1))
+
+    def test_controller_horizontal_axes_are_inverted(self):
+        self.assertPowers(controller_drive_axes(1, 0, 0, 0), (-1, 0, 0))
+        self.assertPowers(controller_drive_axes(0, -1, 0, 0), (0, 1, 0))
+        self.assertPowers(controller_drive_axes(0, 0, 1, 0), (0, 0, -1))
+
+    def test_right_stick_vertical_and_diagonal_input_cannot_turn(self):
+        self.assertPowers(controller_drive_axes(0, 0, 0, -1), (0, 0, 0))
+        self.assertPowers(controller_drive_axes(0, 0, 0, 1), (0, 0, 0))
+        self.assertPowers(controller_drive_axes(0, 0, 0.25, 1), (0, 0, 0))
+        self.assertPowers(controller_drive_axes(0, 0, -0.25, -1), (0, 0, 0))
+        self.assertPowers(controller_drive_axes(0, 0, 1, 0.2), (0, 0, -1))
 
     def test_combined_command_is_bounded(self):
         values = mix_three_omni(1, 1, 1)
@@ -60,9 +81,13 @@ class KinematicsTests(unittest.TestCase):
     def test_servo_trigger_rate_and_hard_limits(self):
         self.assertEqual(next_servo_angle(0, 1, 0, 0.5, 120), -60)
         self.assertEqual(next_servo_angle(0, 0, 1, 0.5, 120), 60)
-        self.assertEqual(next_servo_angle(-179, 1, 0, 1, 120), -180)
-        self.assertEqual(next_servo_angle(179, 0, 1, 1, 120), 180)
+        self.assertEqual(next_servo_angle(-149, 1, 0, 1, 120), -150)
+        self.assertEqual(next_servo_angle(149, 0, 1, 1, 120), 150)
         self.assertEqual(next_servo_angle(20, 1, 1, 1, 120), 20)
+
+    def test_full_trigger_commands_endpoint_quickly(self):
+        self.assertEqual(next_servo_angle(0, 1, 0, 1, 1000), -150)
+        self.assertEqual(next_servo_angle(0, 0, 1, 1, 1000), 150)
 
 
 if __name__ == "__main__":

@@ -27,13 +27,15 @@ The supported HAT is the 16-channel Waveshare-style PCA9685 I2C Servo Driver HAT
 at its default `0x40` address. Connect a 360-degree **positional** servo to channel
 0 with the ground, 5V, and signal wires in the board's indicated orientation.
 
-- Hold the left trigger to move incrementally toward `-180 degrees`.
-- Hold the right trigger to move incrementally toward `+180 degrees`.
+- Hold the left trigger to move at maximum servo speed toward `-150 degrees`.
+- Hold the right trigger to move at maximum servo speed toward `+150 degrees`.
 - Release both triggers to hold the current position.
 - Press X to return to `0 degrees`.
 
-The software never commands beyond `-180..+180 degrees`. Before attaching the
-mechanism, test the servo unloaded and calibrate `SERVO_MIN_PULSE_US`,
+The goBILDA 25-2 Torque servo is a 300-degree positional servo, so the software
+never commands beyond `-150..+150 degrees`. Its documented full PWM span is
+500-2500 microseconds. Before attaching the mechanism, test the servo unloaded and
+calibrate `SERVO_MIN_PULSE_US`,
 `SERVO_CENTER_PULSE_US`, and `SERVO_MAX_PULSE_US` in `servo_hat.py`. Immediately
 reduce the pulse range if the servo buzzes, heats, or pushes against a physical
 stop. The installer enables I2C and installs the SMBus driver automatically.
@@ -48,10 +50,12 @@ GPIO mode is `BOARD`, so these are physical header pin numbers:
 | Left rear | 15 | 35 |
 | Right rear | 12 | 16 |
 
-The left stick controls forward, backward, left, and right translation. The right
-stick's vertical axis controls rotation: push it up to turn left and down to turn
-right. The right-rear motor direction is reversed in software because it is
-mirrored relative to the other motors.
+The left stick controls forward, backward, left, and right translation. Its
+horizontal input is inverted to match this controller. The right stick's horizontal
+axis controls rotation and is also inverted so right means right. Rotation is
+accepted only while the right stick remains inside a narrow vertical center band;
+up, down, and diagonal input do nothing. Both rear motor directions are reversed in
+software relative to the front motor to match the physical 120-degree chassis.
 
 Every nonzero motor command applies a 0.20-second 100% breakaway pulse to overcome
 static friction, then runs between 75% and 100% as the stick moves farther. Full

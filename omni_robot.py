@@ -10,8 +10,10 @@ import pygame
 import RPi.GPIO as GPIO
 
 from omni_kinematics import (
+    THREE_OMNI_MOTOR_SIGNS,
     axis_deadzone,
     clamp,
+    controller_drive_axes,
     mix_three_omni,
     next_servo_angle,
     radial_deadzone,
@@ -23,8 +25,9 @@ from servo_hat import PositionalServo
 # Generic Bluetooth controller mapping (kept from the original program).
 LEFT_X_AXIS = 0
 LEFT_Y_AXIS = 1
-# On this generic controller, axis 3 is the right stick's vertical axis.
-RIGHT_TURN_AXIS = 3
+# Axis 3 only gates diagonal input; it never commands motion. Axis 4 is turn.
+RIGHT_VERTICAL_AXIS = 3
+RIGHT_TURN_AXIS = 4
 LEFT_TRIGGER_AXIS = 2
 RIGHT_TRIGGER_AXIS = 5
 BUTTON_A_INDEX = 0
@@ -33,14 +36,15 @@ BUTTON_X_INDEX = 2
 
 STICK_DEADZONE = 0.15
 TURN_DEADZONE = 0.15
+RIGHT_STICK_VERTICAL_GATE = 0.20
 ARM_NEUTRAL_LIMIT = 0.18
 ARM_NEUTRAL_SECONDS = 0.25
 
 # BOARD pin numbering, matching the supplied wiring.
 MOTOR_PINS = ((40, 38), (15, 35), (12, 16))
 MOTOR_NAMES = ("Motor 0 (Front)", "Motor 1 (L-Rear)", "Motor 2 (R-Rear)")
-# The right-rear motor is mirrored relative to the other two motors.
-MOTOR_SIGNS = (1, 1, -1)
+# Both rear motors use the opposite electrical direction from the front motor.
+MOTOR_SIGNS = THREE_OMNI_MOTOR_SIGNS
 
 PWM_FREQUENCY_HZ = 1000
 START_POWER = 0.75
@@ -49,7 +53,9 @@ BREAKAWAY_BOOST_SECONDS = 0.20
 SLEW_PER_SECOND = 4.0
 REVERSAL_DEADTIME_SECONDS = 0.08
 ZERO_EPSILON = 0.005
-SERVO_SPEED_DEGREES_PER_SECOND = 120.0
+# Intentionally faster than the servo's physical transit rate so full trigger
+# commands maximum hardware speed rather than a software-limited sweep.
+SERVO_SPEED_DEGREES_PER_SECOND = 1000.0
 
 SCREEN_WIDTH, SCREEN_HEIGHT = 800, 480
 UI_FPS = 60
@@ -258,7 +264,8 @@ def main() -> None:
 
             lx_raw = axis(LEFT_X_AXIS)
             ly_raw = axis(LEFT_Y_AXIS)
-            right_turn_raw = axis(RIGHT_TURN_AXIS)
+            right_y_raw = axis(RIGHT_VERTICAL_AXIS)
+            right_x_raw = axis(RIGHT_TURN_AXIS)
             left_trigger_raw = axis(LEFT_TRIGGER_AXIS)
             right_trigger_raw = axis(RIGHT_TRIGGER_AXIS)
             a_pressed = button(BUTTON_A_INDEX)
@@ -279,11 +286,17 @@ def main() -> None:
                 all_stop()
             previous_a, previous_y = a_pressed, y_pressed
 
-            strafe, forward = radial_deadzone(
-                lx_raw, -ly_raw, STICK_DEADZONE
+            strafe_raw, forward_raw, turn_raw = controller_drive_axes(
+                lx_raw,
+                ly_raw,
+                right_x_raw,
+                right_y_raw,
+                RIGHT_STICK_VERTICAL_GATE,
             )
-            # Right stick up is a left/counter-clockwise turn; down is right.
-            turn = axis_deadzone(-right_turn_raw, TURN_DEADZONE)
+            strafe, forward = radial_deadzone(
+                strafe_raw, forward_raw, STICK_DEADZONE
+            )
+            turn = axis_deadzone(turn_raw, TURN_DEADZONE)
             neutral = max((strafe * strafe + forward * forward) ** 0.5, abs(turn))
 
             left_trigger = trigger_activation(
