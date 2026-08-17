@@ -63,14 +63,26 @@ class KinematicsTests(unittest.TestCase):
     def test_controller_horizontal_axes_are_inverted(self):
         self.assertPowers(controller_drive_axes(1, 0, 0, 0), (-1, 0, 0))
         self.assertPowers(controller_drive_axes(0, -1, 0, 0), (0, 1, 0))
-        self.assertPowers(controller_drive_axes(0, 0, 1, 0), (0, 0, -1))
+        self.assertPowers(controller_drive_axes(0, 0, 1, 0), (0, 0, 1))
 
-    def test_right_stick_vertical_and_diagonal_input_cannot_turn(self):
+    def test_right_stick_sideways_and_diagonal_input_cannot_turn(self):
         self.assertPowers(controller_drive_axes(0, 0, 0, -1), (0, 0, 0))
         self.assertPowers(controller_drive_axes(0, 0, 0, 1), (0, 0, 0))
         self.assertPowers(controller_drive_axes(0, 0, 0.25, 1), (0, 0, 0))
         self.assertPowers(controller_drive_axes(0, 0, -0.25, -1), (0, 0, 0))
-        self.assertPowers(controller_drive_axes(0, 0, 1, 0.2), (0, 0, -1))
+        self.assertPowers(controller_drive_axes(0, 0, 1, 0.2), (0, 0, 1))
+
+    def test_full_forward_and_reverse_hold_true_full_power(self):
+        for forward in (-1.0, 1.0):
+            mixed = mix_three_omni(0, forward, 0)
+            physical = tuple(
+                power * sign
+                for power, sign in zip(mixed, THREE_OMNI_MOTOR_SIGNS)
+            )
+            duties = tuple(shape_motor_power(power) for power in physical)
+            self.assertEqual(duties[0], 0)
+            self.assertEqual(abs(duties[1]), 1.0)
+            self.assertEqual(abs(duties[2]), 1.0)
 
     def test_combined_command_is_bounded(self):
         values = mix_three_omni(1, 1, 1)
@@ -89,8 +101,12 @@ class KinematicsTests(unittest.TestCase):
 
     def test_motor_power_jumps_to_usable_range(self):
         self.assertEqual(shape_motor_power(0), 0)
-        self.assertAlmostEqual(shape_motor_power(0.0001, 0.75, 1.0), 0.750025)
-        self.assertAlmostEqual(shape_motor_power(0.5, 0.75, 1.0), 0.875)
+        self.assertGreaterEqual(shape_motor_power(0.0001, 0.75, 1.0), 0.75)
+        self.assertAlmostEqual(
+            shape_motor_power(0.325, 0.75, 1.0, 0.65), 0.875
+        )
+        self.assertEqual(shape_motor_power(0.65, 0.75, 1.0, 0.65), 1.0)
+        self.assertEqual(shape_motor_power(0.90, 0.75, 1.0, 0.65), 1.0)
         self.assertAlmostEqual(shape_motor_power(1, 0.75, 1.0), 1.0)
         self.assertAlmostEqual(shape_motor_power(-1, 0.75, 1.0), -1.0)
 

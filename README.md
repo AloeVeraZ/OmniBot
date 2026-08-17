@@ -51,10 +51,10 @@ GPIO mode is `BOARD`, so these are physical header pin numbers:
 | Right rear | 12 | 16 |
 
 The left stick controls forward, backward, left, and right translation. Its
-horizontal input is inverted to match this controller. The right stick's horizontal
-axis controls rotation and is also inverted so right means right. Rotation is
-accepted only while the right stick remains inside a narrow vertical center band;
-up, down, and diagonal input do nothing. Left-stick translation is cardinal-locked:
+horizontal input is inverted to match this controller. The right stick's vertical
+axis controls rotation with its up/down direction corrected. Rotation is accepted
+only while that stick remains inside a narrow horizontal center band; sideways and
+diagonal input do nothing. Left-stick translation is cardinal-locked:
 small horizontal drift while driving forward/backward is discarded, keeping motor
 0 completely off; small vertical drift while strafing is also discarded. Motor 2
 is electrically reversed in software so forward commands motors 1 and 2 with the
@@ -62,9 +62,11 @@ same GPIO direction, producing opposite physical wheel rotation on the mirrored
 rear mounts.
 
 Every nonzero motor command applies a 0.20-second 100% breakaway pulse to overcome
-static friction, then runs between 75% and 100% as the stick moves farther. Full
-stick stays at a true 100% duty cycle. Releasing the stick stops the affected motor
-immediately; it never slowly ramps down through the unusable range.
+static friction, then runs between 75% and 100% as the stick moves farther. Any
+individual wheel command at 65% or above is saturated to a sustained true 100%, so
+a controller that reports slightly below its nominal endpoint cannot drop the
+motors out of full power after the breakaway pulse. Releasing the stick stops the
+affected motor immediately.
 
 ## Three-wheel behavior
 

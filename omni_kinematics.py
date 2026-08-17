@@ -45,12 +45,16 @@ def axis_deadzone(value: float, deadzone: float) -> float:
 def controller_drive_axes(
     left_x: float,
     left_y: float,
-    right_x: float,
-    right_y: float,
-    right_vertical_gate: float = 0.20,
+    turn_axis: float,
+    turn_orthogonal_axis: float,
+    turn_orthogonal_gate: float = 0.20,
 ) -> Tuple[float, float, float]:
-    """Map reversed axes and accept turning only near right-stick horizontal."""
-    turn = -right_x if abs(right_y) <= right_vertical_gate else 0.0
+    """Map drive axes and reject turn-stick diagonal/sideways input."""
+    turn = (
+        turn_axis
+        if abs(turn_orthogonal_axis) <= turn_orthogonal_gate
+        else 0.0
+    )
     return -left_x, -left_y, turn
 
 
@@ -90,13 +94,21 @@ def normalize(values: Iterable[float], limit: float = 1.0) -> Tuple[float, ...]:
 
 
 def shape_motor_power(
-    power: float, start_power: float = 0.75, maximum_power: float = 1.00
+    power: float,
+    start_power: float = 0.75,
+    maximum_power: float = 1.00,
+    full_power_threshold: float = 0.65,
 ) -> float:
-    """Map every nonzero command into the motor's usable duty-cycle range."""
+    """Map nonzero commands to usable duty and saturate strong input at 100%."""
     power = clamp(power, -1.0, 1.0)
     if power == 0.0:
         return 0.0
-    duty = start_power + (maximum_power - start_power) * abs(power)
+    magnitude = abs(power)
+    if magnitude >= full_power_threshold:
+        duty = maximum_power
+    else:
+        fraction = magnitude / max(full_power_threshold, 1e-9)
+        duty = start_power + (maximum_power - start_power) * fraction
     return math.copysign(duty, power)
 
 

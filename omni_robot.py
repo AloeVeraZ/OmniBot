@@ -26,8 +26,9 @@ from servo_hat import PositionalServo
 # Generic Bluetooth controller mapping (kept from the original program).
 LEFT_X_AXIS = 0
 LEFT_Y_AXIS = 1
-# Axis 3 only gates diagonal input; it never commands motion. Axis 4 is turn.
-RIGHT_VERTICAL_AXIS = 3
+# On this controller axis 4 is physical right-stick up/down. Axis 3 only gates
+# sideways/diagonal input and never commands motion.
+RIGHT_TURN_ORTHOGONAL_AXIS = 3
 RIGHT_TURN_AXIS = 4
 LEFT_TRIGGER_AXIS = 2
 RIGHT_TRIGGER_AXIS = 5
@@ -38,7 +39,7 @@ BUTTON_X_INDEX = 2
 STICK_DEADZONE = 0.15
 TURN_DEADZONE = 0.15
 LEFT_STICK_HORIZONTAL_GATE = 0.20
-RIGHT_STICK_VERTICAL_GATE = 0.20
+RIGHT_STICK_ORTHOGONAL_GATE = 0.20
 ARM_NEUTRAL_LIMIT = 0.18
 ARM_NEUTRAL_SECONDS = 0.25
 
@@ -51,6 +52,7 @@ MOTOR_SIGNS = THREE_OMNI_MOTOR_SIGNS
 PWM_FREQUENCY_HZ = 1000
 START_POWER = 0.75
 MAXIMUM_POWER = 1.00
+FULL_POWER_THRESHOLD = 0.65
 BREAKAWAY_BOOST_SECONDS = 0.20
 SLEW_PER_SECOND = 4.0
 REVERSAL_DEADTIME_SECONDS = 0.08
@@ -107,7 +109,9 @@ class Motor:
             self._coast()
             return "OFF", 0.0
 
-        target = shape_motor_power(target, START_POWER, MAXIMUM_POWER)
+        target = shape_motor_power(
+            target, START_POWER, MAXIMUM_POWER, FULL_POWER_THRESHOLD
+        )
 
         reversing = self.current_power * target < 0.0
         if reversing:
@@ -266,8 +270,8 @@ def main() -> None:
 
             lx_raw = axis(LEFT_X_AXIS)
             ly_raw = axis(LEFT_Y_AXIS)
-            right_y_raw = axis(RIGHT_VERTICAL_AXIS)
-            right_x_raw = axis(RIGHT_TURN_AXIS)
+            right_orthogonal_raw = axis(RIGHT_TURN_ORTHOGONAL_AXIS)
+            right_turn_raw = axis(RIGHT_TURN_AXIS)
             left_trigger_raw = axis(LEFT_TRIGGER_AXIS)
             right_trigger_raw = axis(RIGHT_TRIGGER_AXIS)
             a_pressed = button(BUTTON_A_INDEX)
@@ -291,9 +295,9 @@ def main() -> None:
             strafe_raw, forward_raw, turn_raw = controller_drive_axes(
                 lx_raw,
                 ly_raw,
-                right_x_raw,
-                right_y_raw,
-                RIGHT_STICK_VERTICAL_GATE,
+                right_turn_raw,
+                right_orthogonal_raw,
+                RIGHT_STICK_ORTHOGONAL_GATE,
             )
             strafe, forward = radial_deadzone(
                 strafe_raw, forward_raw, STICK_DEADZONE
@@ -359,7 +363,10 @@ def main() -> None:
                     state, duty = motor.command(signed_target, now, dt)
                     target_duty = abs(
                         shape_motor_power(
-                            signed_target, START_POWER, MAXIMUM_POWER
+                            signed_target,
+                            START_POWER,
+                            MAXIMUM_POWER,
+                            FULL_POWER_THRESHOLD,
                         )
                     ) * 100.0
                     telemetry.append(
