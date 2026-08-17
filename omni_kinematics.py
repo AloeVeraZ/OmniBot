@@ -6,7 +6,7 @@ import math
 from typing import Iterable, Tuple
 
 
-THREE_OMNI_MOTOR_SIGNS = (1, -1, -1)
+THREE_OMNI_MOTOR_SIGNS = (1, 1, -1)
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -24,6 +24,15 @@ def radial_deadzone(x: float, y: float, deadzone: float) -> Tuple[float, float]:
     return x / max(math.hypot(x, y), 1e-9) * scaled, y / max(
         math.hypot(x, y), 1e-9
     ) * scaled
+
+
+def cardinal_lock(
+    strafe: float, forward: float, horizontal_band: float = 0.20
+) -> Tuple[float, float]:
+    """Allow strafe only while the stick is close to exactly horizontal."""
+    if abs(forward) <= horizontal_band:
+        return strafe, 0.0
+    return 0.0, forward
 
 
 def axis_deadzone(value: float, deadzone: float) -> float:

@@ -12,6 +12,7 @@ import RPi.GPIO as GPIO
 from omni_kinematics import (
     THREE_OMNI_MOTOR_SIGNS,
     axis_deadzone,
+    cardinal_lock,
     clamp,
     controller_drive_axes,
     mix_three_omni,
@@ -36,6 +37,7 @@ BUTTON_X_INDEX = 2
 
 STICK_DEADZONE = 0.15
 TURN_DEADZONE = 0.15
+LEFT_STICK_HORIZONTAL_GATE = 0.20
 RIGHT_STICK_VERTICAL_GATE = 0.20
 ARM_NEUTRAL_LIMIT = 0.18
 ARM_NEUTRAL_SECONDS = 0.25
@@ -43,7 +45,7 @@ ARM_NEUTRAL_SECONDS = 0.25
 # BOARD pin numbering, matching the supplied wiring.
 MOTOR_PINS = ((40, 38), (15, 35), (12, 16))
 MOTOR_NAMES = ("Motor 0 (Front)", "Motor 1 (L-Rear)", "Motor 2 (R-Rear)")
-# Both rear motors use the opposite electrical direction from the front motor.
+# Motor 2 is electrically inverted by its wiring/mounting orientation.
 MOTOR_SIGNS = THREE_OMNI_MOTOR_SIGNS
 
 PWM_FREQUENCY_HZ = 1000
@@ -295,6 +297,9 @@ def main() -> None:
             )
             strafe, forward = radial_deadzone(
                 strafe_raw, forward_raw, STICK_DEADZONE
+            )
+            strafe, forward = cardinal_lock(
+                strafe, forward, LEFT_STICK_HORIZONTAL_GATE
             )
             turn = axis_deadzone(turn_raw, TURN_DEADZONE)
             neutral = max((strafe * strafe + forward * forward) ** 0.5, abs(turn))

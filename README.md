@@ -54,8 +54,12 @@ The left stick controls forward, backward, left, and right translation. Its
 horizontal input is inverted to match this controller. The right stick's horizontal
 axis controls rotation and is also inverted so right means right. Rotation is
 accepted only while the right stick remains inside a narrow vertical center band;
-up, down, and diagonal input do nothing. Both rear motor directions are reversed in
-software relative to the front motor to match the physical 120-degree chassis.
+up, down, and diagonal input do nothing. Left-stick translation is cardinal-locked:
+small horizontal drift while driving forward/backward is discarded, keeping motor
+0 completely off; small vertical drift while strafing is also discarded. Motor 2
+is electrically reversed in software so forward commands motors 1 and 2 with the
+same GPIO direction, producing opposite physical wheel rotation on the mirrored
+rear mounts.
 
 Every nonzero motor command applies a 0.20-second 100% breakaway pulse to overcome
 static friction, then runs between 75% and 100% as the stick moves farther. Full

@@ -4,6 +4,7 @@ import unittest
 from omni_kinematics import (
     THREE_OMNI_MOTOR_SIGNS,
     axis_deadzone,
+    cardinal_lock,
     controller_drive_axes,
     mix_three_omni,
     next_servo_angle,
@@ -35,7 +36,29 @@ class KinematicsTests(unittest.TestCase):
         physical = tuple(
             power * sign for power, sign in zip(mixed, THREE_OMNI_MOTOR_SIGNS)
         )
-        self.assertPowers(physical, (0, 1, -1))
+        self.assertPowers(physical, (0, -1, -1))
+
+    def test_forward_axis_lock_keeps_front_motor_off(self):
+        strafe, forward = cardinal_lock(1.0, 0.21)
+        self.assertPowers((strafe, forward), (0, 0.21))
+        mixed = mix_three_omni(strafe, forward, 0)
+        self.assertEqual(mixed[0], 0)
+
+        strafe, forward = cardinal_lock(0.20, 1.0)
+        self.assertPowers((strafe, forward), (0, 1.0))
+        mixed = mix_three_omni(strafe, forward, 0)
+        self.assertEqual(mixed[0], 0)
+
+        strafe, forward = cardinal_lock(-0.20, -1.0)
+        self.assertPowers((strafe, forward), (0, -1.0))
+        mixed = mix_three_omni(strafe, forward, 0)
+        self.assertEqual(mixed[0], 0)
+
+    def test_horizontal_axis_lock_uses_all_three_motors(self):
+        strafe, forward = cardinal_lock(1.0, 0.20)
+        self.assertPowers((strafe, forward), (1.0, 0))
+        mixed = mix_three_omni(strafe, forward, 0)
+        self.assertTrue(all(abs(power) > 0 for power in mixed))
 
     def test_controller_horizontal_axes_are_inverted(self):
         self.assertPowers(controller_drive_axes(1, 0, 0, 0), (-1, 0, 0))
